@@ -1,0 +1,69 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace ActionRPG.Character.UI
+{
+    public class PassiveSkillsUI : MonoBehaviour
+    {
+        [SerializeField] private PlayerSkillProgression skillProgression;
+        [SerializeField] private Transform rowContainer;
+        [SerializeField] private SkillRowUI skillRowPrefab;
+
+        private readonly Dictionary<PassiveSkillType, SkillRowUI> spawnedRows = new Dictionary<PassiveSkillType, SkillRowUI>();
+
+        private void Awake()
+        {
+            if (skillProgression == null)
+                skillProgression = FindFirstObjectByType<PlayerSkillProgression>();
+
+            BuildRowsIfNeeded();
+        }
+
+        private void OnEnable()
+        {
+            if (skillProgression == null) return;
+
+            skillProgression.OnPassiveSkillChanged += HandlePassiveSkillChanged;
+            BuildRowsIfNeeded();
+            RefreshAllRows();
+        }
+
+        private void OnDisable()
+        {
+            if (skillProgression == null) return;
+            skillProgression.OnPassiveSkillChanged -= HandlePassiveSkillChanged;
+        }
+
+        private void BuildRowsIfNeeded()
+        {
+            if (spawnedRows.Count > 0 || skillRowPrefab == null || rowContainer == null) return;
+
+            foreach (PassiveSkillType type in Enum.GetValues(typeof(PassiveSkillType)))
+            {
+                PassiveSkillType capturedType = type;
+                SkillRowUI row = Instantiate(skillRowPrefab, rowContainer);
+                row.Initialize(type.ToString(), () => skillProgression.AddPassiveSkillXP(capturedType, 40f));
+                spawnedRows[type] = row;
+            }
+        }
+
+        private void HandlePassiveSkillChanged(PassiveSkillType type, SkillProgressEntry entry)
+        {
+            if (spawnedRows.TryGetValue(type, out SkillRowUI row))
+            {
+                row.Refresh(entry);
+            }
+        }
+
+        private void RefreshAllRows()
+        {
+            if (skillProgression == null) return;
+
+            foreach (var kvp in spawnedRows)
+            {
+                kvp.Value.Refresh(skillProgression.GetPassiveSkill(kvp.Key));
+            }
+        }
+    }
+}
